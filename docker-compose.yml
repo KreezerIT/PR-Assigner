@@ -1,0 +1,88 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: pr_reviewer_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-prservice}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-prservice_pass}
+      POSTGRES_DB: ${DB_NAME:-pr_reviewer}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-prservice}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pr_reviewer_network
+
+  postgres_test:
+    image: postgres:15-alpine
+    container_name: pr_reviewer_test_db
+    environment:
+      POSTGRES_USER: ${TEST_DB_USER:-prservice_test}
+      POSTGRES_PASSWORD: ${TEST_DB_PASSWORD:-test_pass}
+      POSTGRES_DB: ${TEST_DB_NAME:-pr_reviewer_test}
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TEST_DB_USER:-prservice_test}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pr_reviewer_network
+
+  migrate:
+    image: migrate/migrate:v4.17.0
+    container_name: pr_reviewer_migrate
+    volumes:
+      - ./migrations:/migrations
+    command: ["-path", "/migrations", "-database", "postgres://${DB_USER:-prservice}:${DB_PASSWORD:-prservice_pass}@postgres:5432/${DB_NAME:-pr_reviewer}?sslmode=disable", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pr_reviewer_network
+    restart: on-failure
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pr_reviewer_api
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-prservice}
+      - DB_PASSWORD=${DB_PASSWORD:-prservice_pass}
+      - DB_NAME=${DB_NAME:-pr_reviewer}
+      - DB_SSLMODE=disable
+      - SERVER_PORT=8080
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - pr_reviewer_network
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+
+networks:
+  pr_reviewer_network:
+    driver: bridge

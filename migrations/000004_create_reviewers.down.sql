@@ -1,0 +1,3 @@
+BEGIN;
+DROP TABLE IF EXISTS pull_request_reviewers CASCADE;
+COMMIT;
