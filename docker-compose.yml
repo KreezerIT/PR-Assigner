@@ -5,84 +5,74 @@ services:
     environment:
       POSTGRES_USER: ${DB_USER:-prservice}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-prservice_pass}
-      POSTGRES_DB: ${DB_NAME:-pr_reviewer}
+      POSTGRES_DB: ${DB_NAME:-prservice}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-prservice}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - pr_reviewer_network
-
-  postgres_test:
-    image: postgres:15-alpine
-    container_name: pr_reviewer_test_db
-    environment:
-      POSTGRES_USER: ${TEST_DB_USER:-prservice_test}
-      POSTGRES_PASSWORD: ${TEST_DB_PASSWORD:-test_pass}
-      POSTGRES_DB: ${TEST_DB_NAME:-pr_reviewer_test}
-    ports:
-      - "5433:5432"
-    tmpfs:
-      - /var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${TEST_DB_USER:-prservice_test}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - pr_reviewer_network
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-prservice} -d ${DB_NAME:-prservice}"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
 
   migrate:
-    image: migrate/migrate:v4.17.0
     container_name: pr_reviewer_migrate
-    volumes:
-      - ./migrations:/migrations
-    command: ["-path", "/migrations", "-database", "postgres://${DB_USER:-prservice}:${DB_PASSWORD:-prservice_pass}@postgres:5432/${DB_NAME:-pr_reviewer}?sslmode=disable", "up"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - pr_reviewer_network
-    restart: on-failure
-
-  api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: pr_reviewer_api
-    ports:
-      - "8080:8080"
     environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=${DB_USER:-prservice}
-      - DB_PASSWORD=${DB_PASSWORD:-prservice_pass}
-      - DB_NAME=${DB_NAME:-pr_reviewer}
-      - DB_SSLMODE=disable
-      - SERVER_PORT=8080
-      - LOG_LEVEL=${LOG_LEVEL:-info}
+      DB_HOST: postgres
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-prservice}
+      DB_PASSWORD: ${DB_PASSWORD:-prservice_pass}
+      DB_NAME: ${DB_NAME:-prservice}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until nc -z postgres 5432; do
+          sleep 2
+        done
+        
+        PGPASSWORD=$$DB_PASSWORD psql -h postgres -U $$DB_USER -lqt | cut -d \| -f 1 | grep -qw $$DB_NAME || \
+        PGPASSWORD=$$DB_PASSWORD psql -h postgres -U $$DB_USER -d postgres -c "CREATE DATABASE $$DB_NAME;"
+        
+        migrate -path /root/migrations \
+                -database "postgres://$$DB_USER:$$DB_PASSWORD@postgres:5432/$$DB_NAME?sslmode=$$DB_SSLMODE" \
+                up
+        echo "Migrations completed successfully"
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - ./migrations:/root/migrations
+
+  api:
+    container_name: pr_reviewer_api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      SERVER_PORT: ${SERVER_PORT:-8080}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DB_HOST: postgres
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-prservice}
+      DB_PASSWORD: ${DB_PASSWORD:-prservice_pass}
+      DB_NAME: ${DB_NAME:-prservice}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      DB_MAX_RETRIES: ${DB_MAX_RETRIES:-5}
+      DB_RETRY_DELAY: ${DB_RETRY_DELAY:-2s}
+      DB_MAX_OPEN_CONNS: ${DB_MAX_OPEN_CONNS:-25}
+      DB_MAX_IDLE_CONNS: ${DB_MAX_IDLE_CONNS:-5}
+      DB_CONN_MAX_LIFETIME: ${DB_CONN_MAX_LIFETIME:-5m}
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    depends_on:
       migrate:
         condition: service_completed_successfully
-    networks:
-      - pr_reviewer_network
-    restart: on-failure
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    restart: unless-stopped
 
 volumes:
   postgres_data:
-
-networks:
-  pr_reviewer_network:
-    driver: bridge

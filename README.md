@@ -7,11 +7,9 @@ API для автоматического назначения ревьювер�
 - [Принципы проектирования](#принципы-проектирования)
 - [Технологический стек](#технологический-стек)
 - [Быстрый запуск](#быстрый-запуск)
-  - [Склонировать репозиторий](#склонировать-репозиторий)
+  - [Склонировать репозиторий](#склонировать-репозиторий-и-env-файл)
   - [Запуск через Docker Compose](#запуск-через-docker-compose)
   - [Тестирование](#тестирование)
-  - [Остановка сервисов](#остановка-сервисов)
-  - [Makefile команды](#makefile-команды)
   - [Линтер](#линтер)
   - [Проверка работоспособности (API Endpoints) через curl](#проверка-работоспособности-api-endpoints-через-curl)
 
@@ -41,82 +39,55 @@ API для автоматического назначения ревьювер�
 ### Склонировать репозиторий и .env файл
 
 ```bash
-git clone https://github.com/yourusername/pr-reviewer-service.git
-cd pr-reviewer-service
+git clone https://github.com/KreezerIT/PR-Assigner.git
+cd PR-Assigner
 ```
 ```bash
 cp .env.example .env
 ```
 ### Запуск через Docker Compose
 ```bash
-# Запуск всех сервисов (PostgreSQL + миграции + API)
-docker-compose up --build
-
-# Или через Makefile
 make docker-up
+```
+
+*Сервис будет доступен на http://localhost:8080*
+
+```bash
+
+# Остановка всех сервисов
+make docker-down
 ```
 
 ### Тестирование
 ```bash
-# Все тесты (unit + integration)
+# Unit-тесты
 make test
 ```
 `Unit-тесты`
 ```bash
-# Запуск всех unit-тестов
+# Запуск всех unit-тестов (с покрытием)
 make test-unit
-
-# Или напрямую
-go test ./...
 ```
 ```bash
-# Или напрямую
-go test -v -race -coverprofile=coverage.out ./internal/...
-```
-```bash
-# Просмотр покрытия бизнес-логики
+# Создать отчет по покрытию
 make coverage
-
-# Или напрямую (директории с бизнес-логикой)
-go test -coverprofile="coverage.out" ./internal/app/handler/pullrequest ./internal/app/handler/statistics ./internal/app/handler/team ./internal/app/handler/user ./internal/app/validator ./internal/domain/...
 ```
 
 `Интеграционные тесты`
 ```bash
 # Запуск интеграционных тестов (автоматически поднимает тестовую БД)
 make test-integration
-
-# Или напрямую
-go test ./tests/integration
 ```
 
-### Остановка сервисов
+#### Все тесты в Docker
 ```bash
-docker-compose down -v
-
-# Или через Makefile
-make docker-down
+make docker-test
 ```
-*Сервис будет доступен на http://localhost:8080*
-
-### Makefile команды
-
-- `make build` - собрать бинарный файл приложения
-- `make run` - запустить приложение локально
-- `make docker-test` - запустить все тесты внутри Docker
-- `make migrate-create NAME=...` - создать новый файл миграции
-- `make migrate-up` - применить все новые миграции
-- `make migrate-down` - откатить последнюю примененную миграцию
-- `make lint` - запустить статический анализ кода
-- `make deps` - загрузить и упорядочить зависимости проекта
 
 ### Линтер
-Конфиг находится в `.golangci.yml`
+*Конфиг находится в `.golangci.yml`*
 ```bash
 make lint
-
-# Или напрямую
-golangci-lint run --timeout 5m
 ```
 ### Проверка работоспособности (API Endpoints) через curl
 

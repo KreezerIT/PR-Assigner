@@ -15,7 +15,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /bin/api ./cmd/api
 # Runtime stage
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates curl
+RUN apk --no-cache add ca-certificates curl postgresql-client netcat-openbsd
 
 WORKDIR /root/
 

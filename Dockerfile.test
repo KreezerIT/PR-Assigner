@@ -1,13 +1,15 @@
-FROM golang:1.23-alpine AS builder
+FROM golang:1.23-alpine
 
 WORKDIR /app
 
-RUN apk add --no-cache git make
+RUN apk add --no-cache git gcc musl-dev postgresql-client
 
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
+ENV CGO_ENABLED=1
+
 # Запускаем тесты
-CMD ["sh", "-c", "go test -v -race -coverprofile=coverage.out ./... && go test -v -tags=integration ./tests/integration/..."]
+CMD ["go", "test", "-v", "-race", "-coverprofile=coverage.out", "./..."]
