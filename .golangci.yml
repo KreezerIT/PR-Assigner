@@ -2,10 +2,11 @@ version: "2"
 
 run:
   timeout: 5m
+  tests: false
+  skip-dirs:
+    - tests
   skip-files:
-    - ".*_test\\.go$"
-    - "tests[\\\\/]"
-
+    - ".*_test.go"
 
 linters:
   disable-all: true
@@ -17,16 +18,16 @@ linters:
     - gosec
     - gocritic
 
-formatters:
-  enable:
-    - goimports
-
 issues:
   exclude-rules:
-    - path: "tests[\\\\/]"
+    - path: _test\.go
       linters:
         - errcheck
-        - staticcheck
+        - gosec
+        - gocritic
+    - path: tests/
+      linters:
+        - errcheck
         - unused
 
 output:

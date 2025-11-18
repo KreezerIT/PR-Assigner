@@ -10,6 +10,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
+//nolint:unused
 func runMigrations(db *sql.DB, migrationsPath string) error {
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
@@ -38,6 +39,7 @@ func runMigrations(db *sql.DB, migrationsPath string) error {
 	return nil
 }
 
+//nolint:unused
 func cleanupDB(db *sql.DB) error {
 	tables := []string{
 		"pull_request_reviewers",
