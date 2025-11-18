@@ -2,9 +2,10 @@ package pullrequest
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"slices"
 	"time"
 
@@ -254,7 +255,8 @@ func selectRandomReviewers(candidates []user.User, maxCount int) []string {
 	copy(shuffled, candidates)
 
 	for i := 0; i < k; i++ {
-		j := i + rand.Intn(n-i)
+		nBig, _ := rand.Int(rand.Reader, big.NewInt(int64(n-i)))
+		j := i + int(nBig.Int64())
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	}
 
